@@ -55,7 +55,48 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
+    async register(name, email, password, confirmPassword) {
+      this.loading = true
+      this.error = null
+      this.success = null
 
+      if(password !== confirmPassword) {
+        this.error = 'As senhas não coincidem.'
+        return
+      }
+
+      if (!name || !email || !password) {
+        this.error = 'Preencha todos os campos'
+        this.loading = false
+        return
+      }
+
+      try {
+        const res = await fetch('http://localhost:3000/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        })
+
+        if (!res.ok) {
+          console.log('status ->', res.status)
+
+          if (res.status === 409) {
+            this.error = 'E-mail já cadastrado'
+          } else {
+            this.error = 'Erro ao cadastrar usuário'
+          }
+          return
+        }
+
+        router.push({ name: 'login' })
+
+      } catch (err) {
+        this.error = err.message || 'Erro ao acessar o servidor'
+      } finally {
+        this.loading = false
+      }
+    },
     logout() {
       this.user = null
       this.error = null

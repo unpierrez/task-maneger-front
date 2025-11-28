@@ -15,7 +15,7 @@
 
 <template>
   <div class="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
-    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Acessar Gerenciador de Tarefas</h1>
+    <h1 class="text-4xl font-bold mb-6 text-center text-gray-800">Login</h1>
 
     <form @submit.prevent="handleLogin" class="flex flex-col gap-4">
       <uiInput
@@ -40,6 +40,16 @@
       >
         {{ auth.loading ? 'Entrando...' : 'Entrar' }}
       </uiButton>
+
+      <div class="text-center mt-4 text-sm">
+        <p class="text-gray-600">Ainda não tem conta?</p>
+        <router-link
+          to="/register"
+          class="text-blue-600 font-medium hover:underline"
+        >
+          Cadastre-se
+        </router-link>
+      </div>
 
       <p v-if="auth.error" class="text-red-600 text-sm text-center mt-2">
         {{ auth.error }}
