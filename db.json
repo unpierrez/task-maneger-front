@@ -7,5 +7,18 @@
       "name": "Usuario Teste"
     }
   ],
-  "tasks": []
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Teste",
+      "description": "fazer não sei o que, não sei o que lá",
+      "category": "Pessoal",
+      "priority": "Alta",
+      "dueDate": "2025-12-04",
+      "userId": 1,
+      "formattedDate": "06/12/2025",
+      "expired": false,
+      "_dateObj": "2025-12-06T03:00:00.000Z"
+    }
+  ]
 }

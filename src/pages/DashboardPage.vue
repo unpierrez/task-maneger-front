@@ -1,93 +1,131 @@
 <script setup>
-  import { ref, onMounted, computed } from 'vue'
-  import { useAuthStore } from '../stores/auth.js'
-  import { useTasksStore } from '../stores/tasks.js'
-  import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from '../stores/auth.js'
+import { useTasksStore } from '../stores/tasks.js'
+import { useRouter } from 'vue-router'
 
-  import uiInput from '../components/ui/Input.vue'
-  import uiSelect from '../components/ui/Select.vue'
-  import uiButton from '../components/ui/Button.vue'
-  import uiModal from '../components/ui/Modal.vue'
-  import Header from '../components/Header.vue'
+import uiInput from '../components/ui/Input.vue'
+import uiSelect from '../components/ui/Select.vue'
+import uiButton from '../components/ui/Button.vue'
+import uiModal from '../components/ui/Modal.vue'
+import Header from '../components/Header.vue'
 
-  const auth = useAuthStore()
-  const tasks = useTasksStore()
-  const router = useRouter()
+const auth = useAuthStore()
+const tasks = useTasksStore()
+const router = useRouter()
 
-  const openModal = ref(false)
-  const isEditing = ref(false)
-  const currentTask = ref({
+const openModal = ref(false)
+const isEditing = ref(false)
+const currentTask = ref({
+  id: null,
+  title: '',
+  description: '',
+  category: 'Pessoal',
+  priority: 'Baixa',
+  dueDate: ''
+})
+
+const categories = ['Pessoal', 'Trabalho', 'Estudo']
+const priorities = ['Baixa', 'Média', 'Alta']
+
+const openCreateModal = () => {
+  isEditing.value = false
+  currentTask.value = {
     id: null,
     title: '',
     description: '',
     category: 'Pessoal',
     priority: 'Baixa',
     dueDate: ''
-  })
-
-  const categories = ['Pessoal', 'Trabalho', 'Estudo']
-  const priorities = ['Baixa', 'Média', 'Alta']
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('pt-BR')
   }
+  openModal.value = true
+}
 
-  const openCreateModal = () => {
-    isEditing.value = false
-    currentTask.value = {
-      id: null,
-      title: '',
-      description: '',
-      category: 'Pessoal',
-      priority: 'Baixa',
-      dueDate: ''
-    }
-    openModal.value = true
+const openEditModal = (task) => {
+  isEditing.value = true
+  currentTask.value = { ...task }
+  openModal.value = true
+}
+
+const closeModal = () => {
+  openModal.value = false
+  isEditing.value = false
+}
+
+const saveTask = () => {
+  if (!currentTask.value.title) return
+
+  if (isEditing.value) {
+    tasks.updateTask(currentTask.value)
+  } else {
+    tasks.addTask({ ...currentTask.value })
   }
+  closeModal()
+}
 
-  const openEditModal = (task) => {
-    isEditing.value = true
-    currentTask.value = { ...task }
-    openModal.value = true
+onMounted(() => {
+  tasks.fetchTasks()
+})
+
+const parseLocalDate = (dateStr) => {
+  if (!dateStr) return null
+  const parts = dateStr.split('-').map(Number)
+  if (parts.length !== 3) return null
+  const [year, month, day] = parts
+  return new Date(year, month - 1, day)
+}
+
+const formatDateFromObj = (dateObj) => {
+  if (!dateObj) return '—'
+  return dateObj.toLocaleDateString('pt-BR')
+}
+
+const priorityColor = (priority) => {
+  switch (priority) {
+    case 'Alta':
+      return 'text-red-600 font-semibold'
+    case 'Média':
+      return 'text-yellow-600 font-semibold'
+    case 'Baixa':
+      return 'text-green-600 font-semibold'
+    default:
+      return ''
   }
+}
 
-  const closeModal = () => {
-    openModal.value = false
-    isEditing.value = false
-  }
+const taskList = computed(() => {
+  const list = tasks.filteredTasks ? tasks.filteredTasks() : tasks.list || []
 
-  const saveTask = () => {
-    if (!currentTask.value.title) return
+  return [...list]
+    .map(t => {
+      const dateObj = t.dueDate ? parseLocalDate(t.dueDate) : null
+      const today = new Date()
+      if (dateObj) {
+        dateObj.setHours(0, 0, 0, 0)
+      }
+      today.setHours(0, 0, 0, 0)
 
-    if (isEditing.value) {
-      tasks.updateTask(currentTask.value)
-    } else {
-      tasks.addTask({ ...currentTask.value })
-    }
-    closeModal()
-  }
-
-  onMounted(() => {
-    tasks.fetchTasks()
-  })
-
-  const tasksByCategory = computed(() => {
-    const filtered = tasks.filteredTasks()
-    const result = {}
-    categories.forEach(cat => {
-      result[cat] = filtered.filter(t => t.category === cat)
+      return {
+        ...t,
+        formattedDate: dateObj ? formatDateFromObj(dateObj) : '—',
+        expired: dateObj ? dateObj <= today : false,
+        _dateObj: dateObj
+      }
     })
-    return result
-  })
-
+    .sort((a, b) => {
+      if (!a._dateObj && !b._dateObj) return 0
+      if (!a._dateObj) return 1
+      if (!b._dateObj) return -1
+      return a._dateObj - b._dateObj
+    })
+})
 </script>
 
 <template>
   <div class="min-h-screen p-6 bg-gray-100">
+
     <Header
-      title="Dashboard de Tarefas"
+      title="Gerenciador de Tarefas"
       :subtitle="`Bem-vindo, <span class='font-medium'>${auth.user?.name}</span>`"
     >
       <template #actions>
@@ -95,48 +133,88 @@
       </template>
     </Header>
 
-    <div class="flex gap-4 mb-6 flex-wrap items-end">
-      <uiSelect v-model="tasks.filterCategory" label="Categoria">
-        <option value="Todas">Todas</option>
-        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-      </uiSelect>
+    <div class="flex flex-col sm:flex-row items-end sm:items-center gap-3 mb-6">
 
-      <uiSelect v-model="tasks.filterPriority" label="Prioridade">
-        <option value="Todas">Todas</option>
-        <option v-for="prio in priorities" :key="prio" :value="prio">{{ prio }}</option>
-      </uiSelect>
+      <div class="flex gap-3 flex-wrap items-center w-full sm:w-auto">
 
-      <uiButton variant="primary" class="ml-auto" @click="openCreateModal">
-        Nova Tarefa
-      </uiButton>
+        <div class="flex items-center gap-2">
+          <uiSelect label="Categoria" v-model="tasks.filterCategory" class="min-w-[140px]">
+            <option value="Todas">Todas</option>
+            <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+          </uiSelect>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <uiSelect label="Prioridade" v-model="tasks.filterPriority" class="min-w-[140px]">
+            <option value="Todas">Todas</option>
+            <option v-for="prio in priorities" :key="prio" :value="prio">
+              {{ prio }}
+            </option>
+          </uiSelect>
+        </div>
+
+      </div>
+
+      <div class="ml-auto">
+        <uiButton variant="primary" @click="openCreateModal">
+          Nova Tarefa
+        </uiButton>
+      </div>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-4">
+    <div class="space-y-3">
+
       <div
-        v-for="cat in categories"
-        :key="cat"
-        v-show="tasks.filterCategory === 'Todas' || tasks.filterCategory === cat"
-        class="flex flex-col gap-4"
+        v-if="!taskList.length"
+        class="bg-white p-6 rounded-xl shadow text-center text-gray-600"
       >
-        <h2 class="text-xl font-bold mb-2">{{ cat }}</h2>
+        Nenhuma tarefa encontrada.
+      </div>
+
+      <div
+        v-for="task in taskList"
+        :key="task.id"
+        @click="openEditModal(task)"
+        class="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer flex justify-between gap-6 items-start"
+      >
+
+        <div class="flex-1">
+          <h3 class="text-lg font-bold mb-1">{{ task.title }}</h3>
+
+          <p class="text-gray-600 mb-2 line-clamp-2">
+            {{ task.description || 'Sem descrição' }}
+          </p>
+
+          <div class="flex gap-4 text-sm text-gray-700">
+            <span>
+              Categoria:
+              <span class="font-medium">{{ task.category }}</span>
+            </span>
+
+            <span>
+              Prioridade:
+              <span :class="priorityColor(task.priority)">
+                {{ task.priority }}
+              </span>
+            </span>
+
+            <span>
+              Concluir até:
+              <span class="font-medium" :class="{ 'text-red-600': task.expired }">
+                {{ task.formattedDate }}
+              </span>
+            </span>
+          </div>
+        </div>
 
         <div
-          v-for="task in tasksByCategory[cat]"
-          :key="task.id"
-          @click="openEditModal(task)"
-          class="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer flex flex-col justify-between"
+          class="flex flex-col items-end justify-between min-w-[80px] py-1"
+          @click.stop
         >
-          <div>
-            <h3 class="text-lg font-bold mb-1">{{ task.title }}</h3>
-            <p class="text-gray-600 mb-2">{{ task.description || 'Sem descrição' }}</p>
-            <p class="text-sm">Prioridade: <span class="font-medium">{{ task.priority }}</span></p>
-            <p class="text-sm">Concluir até: <span class="font-medium">{{ formatDate(task.dueDate) }}</span></p>
-          </div>
-
           <uiButton
             variant="secondary"
-            class="mt-3 text-sm self-start text-red-600 hover:underline bg-transparent hover:bg-transparent"
-            @click.stop="tasks.deleteTask(task.id)"
+            class="text-sm text-red-600 hover:underline bg-transparent hover:bg-transparent"
+            @click="tasks.deleteTask(task.id)"
           >
             Excluir
           </uiButton>
@@ -168,5 +246,6 @@
         </uiButton>
       </template>
     </uiModal>
+
   </div>
 </template>
